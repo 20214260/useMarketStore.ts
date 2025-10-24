@@ -1,0 +1,51 @@
+import { useMarketStore, TickerKey } from "../hooks/useMarketStore";
+
+// 표준정규분포 난수 생성 (Box–Muller 변환)
+function randn(): number {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+// 가격이 너무 튀지 않게 제한
+function clamp(x: number, min = 1, max = 9999) {
+  return Math.min(max, Math.max(min, x));
+}
+
+// 한 종목 업데이트
+function updateAsset(key: TickerKey) {
+  const { assets, pushPrice } = useMarketStore.getState();
+  const a = assets[key];
+  const dt = 0.5 / 60; // 0.5초 = 가상의 1/120분 단위
+
+  // 기하 브라운 운동 기반 모델: dS = S*(μ*dt + σ*sqrt(dt)*N(0,1))
+  const noise = randn() * a.vol * Math.sqrt(dt);
+  const dS = a.price * (a.drift * dt + noise);
+
+  // 너무 큰 점프 방지 (±20% 이내)
+  const maxJump = a.price * 0.2;
+  const next = clamp(a.price + Math.max(-maxJump, Math.min(maxJump, dS)));
+
+  pushPrice(key, next);
+}
+
+// 엔진 타이머 제어용 변수
+let timer: number | null = null;
+
+// 시뮬레이터 시작
+export function startEngine() {
+  const { tickMs } = useMarketStore.getState();
+  if (timer) return; // 이미 실행 중이면 무시
+  timer = window.setInterval(() => {
+    (Object.keys(useMarketStore.getState().assets) as TickerKey[]).forEach(updateAsset);
+  }, tickMs);
+}
+
+// 시뮬레이터 정지
+export function stopEngine() {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
