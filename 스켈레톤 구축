@@ -1,0 +1,84 @@
+import { create } from "zustand";
+
+export type TickerKey = "WTM" | "BGE" | "CSI" | "SHG" | "MWS";
+
+export type Asset = {
+  key: TickerKey;
+  name: string;
+  price: number;
+  baseDrift: number;
+  baseVol: number;
+  drift: number;
+  vol: number;
+  history: number[];
+};
+
+type MarketState = {
+  assets: Record<TickerKey, Asset>;
+  tickMs: number;
+  maxHistory: number;
+  lastUpdatedAt: number;
+  setAsset: (key: TickerKey, partial: Partial<Asset>) => void;
+  pushPrice: (key: TickerKey, price: number) => void;
+  resetAll: () => void;
+};
+
+const initialAssets: Record<TickerKey, Asset> = {
+  WTM: {
+    key: "WTM", name: "WarTech Munitions",
+    price: 100, baseDrift: 0.001, baseVol: 0.08,
+    drift: 0.001, vol: 0.08, history: Array(120).fill(100)
+  },
+  BGE: {
+    key: "BGE", name: "BlackGold Energy",
+    price: 80, baseDrift: 0.0008, baseVol: 0.07,
+    drift: 0.0008, vol: 0.07, history: Array(120).fill(80)
+  },
+  CSI: {
+    key: "CSI", name: "CyberShield Index",
+    price: 60, baseDrift: 0.0012, baseVol: 0.09,
+    drift: 0.0012, vol: 0.09, history: Array(120).fill(60)
+  },
+  SHG: {
+    key: "SHG", name: "SafeHarbor Gold",
+    price: 120, baseDrift: 0.0006, baseVol: 0.05,
+    drift: 0.0006, vol: 0.05, history: Array(120).fill(120)
+  },
+  MWS: {
+    key: "MWS", name: "MemeWave Social",
+    price: 40, baseDrift: 0.0015, baseVol: 0.12,
+    drift: 0.0015, vol: 0.12, history: Array(120).fill(40)
+  }
+};
+
+export const useMarketStore = create<MarketState>((set, get) => ({
+  assets: initialAssets,
+  tickMs: 500,
+  maxHistory: 600,
+  lastUpdatedAt: Date.now(),
+  setAsset: (key, partial) => {
+    const current = get().assets[key];
+    set({ assets: { ...get().assets, [key]: { ...current, ...partial } } });
+  },
+  pushPrice: (key, price) => {
+    const a = get().assets[key];
+    const history = [...a.history, price];
+    const trimmed = history.length > get().maxHistory ? history.slice(history.length - get().maxHistory) : history;
+    set({
+      assets: {
+        ...get().assets,
+        [key]: { ...a, price, history: trimmed }
+      }
+    });
+  },
+  resetAll: () => {
+    set({
+      assets: Object.fromEntries(
+        Object.entries(initialAssets).map(([k, v]) => [
+          k, { ...v, price: v.history[0], drift: v.baseDrift, vol: v.baseVol, history: Array(120).fill(v.history[0]) }
+        ])
+      ) as Record<TickerKey, Asset>,
+      lastUpdatedAt: Date.now()
+    });
+  }
+}));
