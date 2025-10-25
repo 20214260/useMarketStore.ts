@@ -1,1 +1,62 @@
+import { useEffect, useRef } from "react";
+
+export default function ChartPanel({
+  label,
+  data,
+  height = 90,
+}: {
+  label: string;
+  data: number[];
+  height?: number;
+}) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+
+    //  폭, 높이 고정: 이전 캔버스 크기 초기화
+    const width = c.clientWidth;
+    c.width = width * window.devicePixelRatio;
+    c.height = height * window.devicePixelRatio;
+
+    ctx.resetTransform?.(); // 캔버스 변형 초기화
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    ctx.clearRect(0, 0, width, height);
+
+    if (data.length < 2) return;
+
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const n = data.length;
+
+    //  색상 및 스타일 설정
+    ctx.strokeStyle = "rgba(0,0,0,0.25)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+
+    //  X좌표 계산 시 "누적"되지 않도록 고정된 width 기준으로 계산
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * (width - 8) + 4;
+      const y = height - 6 - ((data[i] - min) / (max - min + 1e-6)) * (height - 12);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+
+    ctx.stroke();
+  }, [data, height]); //  data 바뀔 때만 새로 그림
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white/50 px-3 py-2">
+      <div className="text-xs opacity-60">{label}</div>
+      <canvas
+        ref={ref}
+        style={{ width: "100%", height: `${height}px`, display: "block" }} //  layout 고정
+      />
+    </div>
+  );
+}
 
